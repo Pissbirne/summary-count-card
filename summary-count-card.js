@@ -208,12 +208,12 @@ class SummaryCountCard extends HTMLElement {
 
   _autoLabel(type, count) {
     const de = {
-      lights: count === 1 ? "Licht an" : "Lichter an",
+      lights: count === 0 ? "Alle aus" : (count === 1 ? "Licht an" : "Lichter an"),
       batteries_critical: count === 0 ? "Alle OK" : "kritisch",
-      covers_open: count === 1 ? "Rollo offen" : "Rollos offen",
+      covers_open: count === 0 ? "Alle zu" : (count === 1 ? "Rollo offen" : "Rollos offen"),
       security: count === 0 ? "Alles gesichert" : "unsicher",
-      switches_on: "Schalter an",
-      sensors_on: count === 1 ? "Sensor an" : "Sensoren an"
+      switches_on: count === 0 ? "Alle aus" : "Schalter an",
+      sensors_on: count === 0 ? "Keine aktiv" : (count === 1 ? "Sensor an" : "Sensoren an")
     };
     return de[type] || "";
   }
@@ -294,8 +294,8 @@ class SummaryCountCard extends HTMLElement {
       iconEl.style.display = showIcon ? "" : "none";
     }
     if (numEl) {
-      // Zahl ausblenden bei "Alle OK" (batteries=0) und "Alles gesichert" (security=0)
-      const hideNum = ((this._config.count_type === "batteries_critical" || this._config.count_type === "security") && this._count === 0);
+      // Zahl ausblenden, wenn count=0 und ein "Alle ..."-Label steht (kein "0 Alle aus")
+      const hideNum = (this._count === 0 && this._label);
       numEl.textContent = hideNum ? "" : String(this._count);
       numEl.style.color = color;
       numEl.style.display = hideNum ? "none" : "";

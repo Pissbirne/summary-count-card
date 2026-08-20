@@ -1,6 +1,6 @@
 # Summary Count Card
 
-A compact Home Assistant Lovelace card that counts entities in a given state and navigates to a target view when tapped. Perfect for replacing simon42 summary cards with a lightweight, dependency-free alternative.
+A compact Home Assistant Lovelace card that counts entities in a given state and navigates to a target view when tapped. Lightweight and dependency-free.
 
 ## Features
 

@@ -294,8 +294,9 @@ class SummaryCountCard extends HTMLElement {
       iconEl.style.display = showIcon ? "" : "none";
     }
     if (numEl) {
-      // Zahl ausblenden, wenn count=0 und ein "Alle ..."-Label steht (kein "0 Alle aus")
-      const hideNum = (this._count === 0 && this._label);
+      // Zahl ausblenden NUR wenn count=0 UND das Label tatsächlich sichtbar ist (kein "0 Alle aus").
+      // Bei show_label:false bleibt die Zahl immer sichtbar.
+      const hideNum = (this._count === 0 && this._label && showLabel);
       numEl.textContent = hideNum ? "" : String(this._count);
       numEl.style.color = color;
       numEl.style.display = hideNum ? "none" : "";
@@ -304,9 +305,10 @@ class SummaryCountCard extends HTMLElement {
       labelEl.textContent = this._label || "";
       labelEl.style.display = (showLabel && this._label) ? "" : "none";
     }
+    // Die Karte selbst wird NIE ausgeblendet — nur das Label reagiert auf show_label
     const cardEl = this._shadow.querySelector("ha-card");
     if (cardEl) {
-      cardEl.style.display = (showLabel && this._label) ? "" : "none";
+      cardEl.style.display = "";
     }
   }
 

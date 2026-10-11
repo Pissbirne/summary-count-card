@@ -3,6 +3,33 @@
 const CARD_NAME = "summary-count-card";
 const EDITOR_TAG = CARD_NAME + "-editor";
 
+// Automatische Labels, zweisprachig. Die Sprache kommt aus Home Assistant
+// (hass.locale.language); alles ausser "de" bekommt Englisch.
+// Reihenfolge je Typ: [count === 0, count === 1, sonst]
+const AUTO_LABELS = {
+  de: {
+    lights: ["Alle aus", "Licht an", "Lichter an"],
+    batteries_critical: ["Alle OK", "kritisch", "kritisch"],
+    covers_open: ["Alle zu", "Rollo offen", "Rollos offen"],
+    security: ["Alles gesichert", "unsicher", "unsicher"],
+    switches_on: ["Alle aus", "Schalter an", "Schalter an"],
+    sensors_on: ["Keine aktiv", "Sensor an", "Sensoren an"]
+  },
+  en: {
+    lights: ["All off", "Light on", "Lights on"],
+    batteries_critical: ["All OK", "critical", "critical"],
+    covers_open: ["All closed", "Cover open", "Covers open"],
+    security: ["All secure", "unsafe", "unsafe"],
+    switches_on: ["All off", "Switch on", "Switches on"],
+    sensors_on: ["None active", "Sensor active", "Sensors active"]
+  }
+};
+
+function langOf(hass) {
+  const raw = (hass && ((hass.locale && hass.locale.language) || hass.language)) || "en";
+  return String(raw).toLowerCase().split("-")[0];
+}
+
 // ===== Editor =====
 class SummaryCountEditor extends HTMLElement {
   constructor() {
@@ -155,6 +182,7 @@ class SummaryCountCard extends HTMLElement {
     this._rgbSrc = null;
     this._rgbVal = null;
     this._rgbAt = 0;
+    this._lang = "en";
   }
 
   setConfig(config) {
@@ -186,6 +214,7 @@ class SummaryCountCard extends HTMLElement {
 
   _compute() {
     if (!this._hass || !this._config) return;
+    this._lang = langOf(this._hass);
     this._count = this._countEntities(this._hass, this._config.count_type);
     this._label = this._config.label || this._autoLabel(this._config.count_type, this._count);
   }
@@ -233,15 +262,10 @@ class SummaryCountCard extends HTMLElement {
   }
 
   _autoLabel(type, count) {
-    const de = {
-      lights: count === 0 ? "Alle aus" : (count === 1 ? "Licht an" : "Lichter an"),
-      batteries_critical: count === 0 ? "Alle OK" : "kritisch",
-      covers_open: count === 0 ? "Alle zu" : (count === 1 ? "Rollo offen" : "Rollos offen"),
-      security: count === 0 ? "Alles gesichert" : "unsicher",
-      switches_on: count === 0 ? "Alle aus" : "Schalter an",
-      sensors_on: count === 0 ? "Keine aktiv" : (count === 1 ? "Sensor an" : "Sensoren an")
-    };
-    return de[type] || "";
+    const table = AUTO_LABELS[this._lang] || AUTO_LABELS.en;
+    const row = table[type] || AUTO_LABELS.en[type];
+    if (!row) return "";
+    return row[count === 0 ? 0 : (count === 1 ? 1 : 2)];
   }
 
   _autoIcon(type) {

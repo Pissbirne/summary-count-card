@@ -25,6 +25,31 @@ const AUTO_LABELS = {
   }
 };
 
+// Editor-Beschriftungen, gleiche Sprache wie die Karte
+const EDITOR_UI = {
+  de: {
+    general: "Allgemein", display: "Anzeige", count_type: "Z\u00e4hl-Typ",
+    target: "Ziel (Navigation, z.B. /dashboard-neu/batteries)",
+    label: "Label (leer = automatisch)", label_ph: "automatisch",
+    icon: "Icon (leer = automatisch, z.B. mdi:battery-alert)",
+    show_label: "Label anzeigen", show_icon: "Icon anzeigen",
+    animate: "Animieren", active_only: "Nur gr\u00f6\u00dfer 0",
+    types: { batteries_critical: "Batterien kritisch", lights: "Lichter an", switches_on: "Schalter an",
+             sensors_on: "Sensoren an", covers_open: "Rollos offen", security: "Unsicher" }
+  },
+  en: {
+    general: "General", display: "Display", count_type: "Count type",
+    target: "Target (navigation, e.g. /dashboard-neu/batteries)",
+    label: "Label (empty = automatic)", label_ph: "automatic",
+    icon: "Icon (empty = automatic, e.g. mdi:battery-alert)",
+    show_label: "Show label", show_icon: "Show icon",
+    animate: "Animate", active_only: "Only above 0",
+    types: { batteries_critical: "Critical batteries", lights: "Lights on", switches_on: "Switches on",
+             sensors_on: "Sensors active", covers_open: "Covers open", security: "Unsafe" }
+  }
+};
+const TYPE_ORDER = ["batteries_critical", "lights", "switches_on", "sensors_on", "covers_open", "security"];
+
 function langOf(hass) {
   const raw = (hass && ((hass.locale && hass.locale.language) || hass.language)) || "en";
   return String(raw).toLowerCase().split("-")[0];
@@ -37,6 +62,7 @@ class SummaryCountEditor extends HTMLElement {
     this._config = null;
     this._hass = null;
     this._shadow = null;
+    this._lang = "en";
   }
 
   setConfig(config) {
@@ -52,11 +78,19 @@ class SummaryCountEditor extends HTMLElement {
       animate_active_only: config.animate_active_only !== false,
       ...config
     };
+    this._lang = langOf(this._hass);
     if (!this._shadow) this._shadow = this.attachShadow({ mode: "open" });
     this._render();
   }
 
-  set hass(hass) { this._hass = hass; }
+  set hass(hass) {
+    this._hass = hass;
+    const lang = langOf(hass);
+    if (lang !== this._lang) {       // Sprachenwechsel live uebernehmen
+      this._lang = lang;
+      this._render();
+    }
+  }
   get hass() { return this._hass; }
 
   _emit() {
@@ -75,17 +109,10 @@ class SummaryCountEditor extends HTMLElement {
   _render() {
     if (!this._shadow || !this._config) return;
     const c = this._config;
-    const types = [
-      ["batteries_critical", "Batterien kritisch"],
-      ["lights", "Lichter an"],
-      ["switches_on", "Schalter an"],
-      ["sensors_on", "Sensoren an"],
-      ["covers_open", "Rollos offen"],
-      ["security", "Unsicher"]
-    ];
+    const t = EDITOR_UI[this._lang] || EDITOR_UI.en;
     let options = "";
-    for (const [val, lbl] of types) {
-      options += `<option value="${val}" ${c.count_type === val ? "selected" : ""}>${lbl}</option>`;
+    for (const val of TYPE_ORDER) {
+      options += `<option value="${val}" ${c.count_type === val ? "selected" : ""}>${t.types[val] || val}</option>`;
     }
 
     this._shadow.innerHTML = `
@@ -103,40 +130,40 @@ class SummaryCountEditor extends HTMLElement {
         .section-head { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); }
       </style>
       <div class="editor">
-        <div class="section-head">Allgemein</div>
+        <div class="section-head">${t.general}</div>
         <div class="row">
-          <label>Zähl-Typ</label>
+          <label>${t.count_type}</label>
           <select class="select-input" id="count_type">${options}</select>
         </div>
         <div class="row">
-          <label>Ziel (Navigation, z.B. /dashboard-neu/batteries)</label>
+          <label>${t.target}</label>
           <input type="text" class="text-input" id="target_path" value="${c.target_path || ""}" placeholder="/dashboard-neu/batteries">
         </div>
         <div class="section-divider"></div>
-        <div class="section-head">Anzeige</div>
+        <div class="section-head">${t.display}</div>
         <div class="row">
-          <label>Label (leer = automatisch)</label>
-          <input type="text" class="text-input" id="label" value="${c.label || ""}" placeholder="automatisch">
+          <label>${t.label}</label>
+          <input type="text" class="text-input" id="label" value="${c.label || ""}" placeholder="${t.label_ph}">
         </div>
         <div class="row">
-          <label>Icon (leer = automatisch, z.B. mdi:battery-alert)</label>
+          <label>${t.icon}</label>
           <input type="text" class="text-input" id="icon" value="${c.icon || ""}" placeholder="mdi:battery-alert">
         </div>
         <div class="toggle-row">
-          <ha-switch id="show_label" .checked="${c.show_label !== false}"></ha-switch>
-          <span>Label anzeigen</span>
+          <ha-switch id="show_label"></ha-switch>
+          <span>${t.show_label}</span>
         </div>
         <div class="toggle-row">
-          <ha-switch id="show_icon" .checked="${c.show_icon !== false}"></ha-switch>
-          <span>Icon anzeigen</span>
+          <ha-switch id="show_icon"></ha-switch>
+          <span>${t.show_icon}</span>
         </div>
         <div class="toggle-row">
-          <ha-switch id="animate" .checked="${c.animate === true}"></ha-switch>
-          <span>Animieren</span>
+          <ha-switch id="animate"></ha-switch>
+          <span>${t.animate}</span>
         </div>
         <div class="toggle-row">
-          <ha-switch id="animate_active_only" .checked="${c.animate_active_only !== false}"></ha-switch>
-          <span>Nur gr&ouml;&szlig;er 0</span>
+          <ha-switch id="animate_active_only"></ha-switch>
+          <span>${t.active_only}</span>
         </div>
       </div>
     `;
@@ -152,9 +179,15 @@ class SummaryCountEditor extends HTMLElement {
     const ic = this._shadow.querySelector("#icon");
     if (ic) ic.addEventListener("input", (e) => self._patch({ icon: e.target.value }));
     const sl = this._shadow.querySelector("#show_label");
-    if (sl) sl.addEventListener("change", (e) => self._patch({ show_label: e.target.checked }));
+    if (sl) {
+      sl.checked = self._config.show_label !== false;
+      sl.addEventListener("change", (e) => self._patch({ show_label: e.target.checked }));
+    }
     const si = this._shadow.querySelector("#show_icon");
-    if (si) si.addEventListener("change", (e) => self._patch({ show_icon: e.target.checked }));
+    if (si) {
+      si.checked = self._config.show_icon !== false;
+      si.addEventListener("change", (e) => self._patch({ show_icon: e.target.checked }));
+    }
     const an = this._shadow.querySelector("#animate");
     if (an) {
       an.checked = self._config.animate === true;

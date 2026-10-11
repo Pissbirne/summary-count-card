@@ -14,7 +14,7 @@ A compact Home Assistant Lovelace card that counts entities in a given state and
 - **Tap navigation** — navigate to any dashboard view on tap (e.g. `/dashboard-neu/batteries`)
 - **Theme-compatible** — uses only CSS variables, adapts to any theme, dark or light
 - **Visual editor** — pick the count type, target view and animation switches in the UI, no YAML needed
-- **Two languages** — automatic labels follow your Home Assistant language (German or English)
+- **Two languages** — the card's automatic labels *and* the visual editor follow your Home Assistant language (German or English)
 - **No dependencies** — pure `HTMLElement`, no Lit runtime, no external libraries
 
 ## Installation
@@ -88,13 +88,17 @@ The glow halo takes the icon's own colour, so it turns red while there is someth
 
 ## Labels and language
 
-Automatic labels follow the language your Home Assistant is set to: German (`de`) or English (everything else). Any single card can override its text with the `label` option, which always wins:
+Everything the card shows follows the language your Home Assistant is set to: German (`de`) or English (everything else). That covers the automatic labels *and* the labels in the visual editor. Any single card can override its text with the `label` option, which always wins:
 
 ```yaml
 type: custom:summary-count-card
 count_type: batteries_critical
 label: Batteries to check
 ```
+
+### Adding another language
+
+Both string tables sit at the top of `summary-count-card.js` and are keyed by the two-letter language code: `AUTO_LABELS` for the card text and `EDITOR_UI` for the editor. Add an entry there and it is used automatically — a regional variant such as `de-AT` or `en-GB` resolves to its base language.
 
 ## Security counting details
 

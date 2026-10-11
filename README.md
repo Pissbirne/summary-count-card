@@ -10,7 +10,7 @@ A compact Home Assistant Lovelace card that counts entities in a given state and
 
 - **Count entities** — lights on, critical batteries, open covers, security issues, switches on, sensors on
 - **Critical batteries** — counts `unavailable`/`unknown` AND values below 20% (`device_class: battery`)
-- **Optional icon animation** — the same look as an animated lock card: a pulsing glow halo plus a swinging icon, tinted in the current state colour (red = something to act on, green = all clear)
+- **Optional icon animation** — glow halo + swinging icon, in the state colour (see [Animation](#animation))
 - **Tap navigation** — navigate to any dashboard view on tap (e.g. `/dashboard-neu/batteries`)
 - **Theme-compatible** — uses only CSS variables, adapts to any theme, dark or light
 - **Visual editor** — pick the count type, target view and animation switches in the UI, no YAML needed
@@ -34,7 +34,7 @@ A compact Home Assistant Lovelace card that counts entities in a given state and
 ## Configuration
 
 ### Visual editor
-Add a new card, search for "Summary Count", and choose everything in the editor — count type, target view, labels, icon, and the two animation switches.
+Add a new card, search for "Summary Count" — every option is configurable in the editor, no YAML needed.
 
 ### YAML
 

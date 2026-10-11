@@ -1,4 +1,5 @@
 // ===== SUMMARY-COUNT-CARD - mit visuellem Editor (ohne Lit) =====
+// Optionen: animate (Animieren), animate_active_only (nur groesser 0)
 const CARD_NAME = "summary-count-card";
 const EDITOR_TAG = CARD_NAME + "-editor";
 
@@ -20,6 +21,8 @@ class SummaryCountEditor extends HTMLElement {
       show_label: config.show_label !== false,
       show_icon: config.show_icon !== false,
       color_mode: config.color_mode || "auto",
+      animate: config.animate === true,
+      animate_active_only: config.animate_active_only !== false,
       ...config
     };
     if (!this._shadow) this._shadow = this.attachShadow({ mode: "open" });
@@ -100,6 +103,14 @@ class SummaryCountEditor extends HTMLElement {
           <ha-switch id="show_icon" .checked="${c.show_icon !== false}"></ha-switch>
           <span>Icon anzeigen</span>
         </div>
+        <div class="toggle-row">
+          <ha-switch id="animate" .checked="${c.animate === true}"></ha-switch>
+          <span>Animieren</span>
+        </div>
+        <div class="toggle-row">
+          <ha-switch id="animate_active_only" .checked="${c.animate_active_only !== false}"></ha-switch>
+          <span>Nur gr&ouml;&szlig;er 0</span>
+        </div>
       </div>
     `;
 
@@ -117,6 +128,16 @@ class SummaryCountEditor extends HTMLElement {
     if (sl) sl.addEventListener("change", (e) => self._patch({ show_label: e.target.checked }));
     const si = this._shadow.querySelector("#show_icon");
     if (si) si.addEventListener("change", (e) => self._patch({ show_icon: e.target.checked }));
+    const an = this._shadow.querySelector("#animate");
+    if (an) {
+      an.checked = self._config.animate === true;
+      an.addEventListener("change", (e) => self._patch({ animate: e.target.checked }));
+    }
+    const ao = this._shadow.querySelector("#animate_active_only");
+    if (ao) {
+      ao.checked = self._config.animate_active_only !== false;
+      ao.addEventListener("change", (e) => self._patch({ animate_active_only: e.target.checked }));
+    }
   }
 }
 
@@ -131,6 +152,9 @@ class SummaryCountCard extends HTMLElement {
     this._shadow = null;
     this._count = 0;
     this._label = "";
+    this._rgbSrc = null;
+    this._rgbVal = null;
+    this._rgbAt = 0;
   }
 
   setConfig(config) {
@@ -142,7 +166,9 @@ class SummaryCountCard extends HTMLElement {
       icon: config.icon || "",
       show_label: config.show_label !== false,
       show_icon: config.show_icon !== false,
-      color_mode: config.color_mode || "auto"
+      color_mode: config.color_mode || "auto",
+      animate: config.animate === true,
+      animate_active_only: config.animate_active_only !== false
     };
     this._compute();
     if (!this._shadow) {
@@ -247,6 +273,33 @@ class SummaryCountCard extends HTMLElement {
     }
   }
 
+  // Loest die Icon-Farbe (Theme-Variablen wie var(--error-color) sind KEIN rgb-Tripel)
+  // zu "r,g,b" auf, damit der Glow-Halo exakt die Icon-Farbe hat. Quelle ist die
+  // bereits gerenderte Farbe des Icons selbst - kein Extra-Element, keine Layout-Kosten.
+  // Fehlschlaege werden NICHT gecacht, und ausserhalb des DOM wird gar nicht aufgeloest.
+  _applyGlowRgb(color, iconEl) {
+    const now = Date.now();
+    if (this._rgbSrc === color && this._rgbVal && (now - this._rgbAt) < 30000) {
+      this.style.setProperty("--scc-rgb", this._rgbVal);
+      return;
+    }
+    if (!this.isConnected || !iconEl) return;
+    let rgb = null;
+    try {
+      const resolved = getComputedStyle(iconEl).color || "";
+      const m = resolved.match(/([0-9]+)[^0-9]+([0-9]+)[^0-9]+([0-9]+)/);
+      if (m) rgb = m[1] + "," + m[2] + "," + m[3];
+    } catch (e) { rgb = null; }
+    if (!rgb) {
+      if (this._rgbVal) this.style.setProperty("--scc-rgb", this._rgbVal);
+      return;
+    }
+    this._rgbSrc = color;
+    this._rgbVal = rgb;
+    this._rgbAt = now;
+    this.style.setProperty("--scc-rgb", rgb);
+  }
+
   _render() {
     if (!this._shadow || !this._config) return;
     const icon = this._config.icon || this._autoIcon(this._config.count_type);
@@ -256,13 +309,46 @@ class SummaryCountCard extends HTMLElement {
 
     const styles = `
       :host { display: block; }
-      ha-card { cursor:pointer; border-radius:12px; }
+      ha-card { cursor:pointer; border-radius:12px; overflow:visible; }
       ha-card:hover { background:rgba(255,255,255,0.12); }
       .inner { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:12px; min-height:88px; }
       .row { display:flex; flex-direction:row; align-items:baseline; justify-content:center; gap:4px; }
       .num { font-size:24px; font-weight:700; line-height:1; }
       .label { font-size:14px; font-weight:600; color:var(--primary-text-color); text-align:center; }
+      .iconwrap { position:relative; display:flex; align-items:center; justify-content:center; }
       ha-icon { --mdc-icon-size:32px; margin-bottom:2px; }
+
+      /* Glow-Halo hinter dem Icon - gleicher Effekt wie auf der Tuerschloss-Karte */
+      .iconwrap::after {
+        content:''; position:absolute; left:50%; top:50%; width:46px; height:46px;
+        margin:-23px 0 0 -23px; border-radius:50%; pointer-events:none; opacity:0;
+        box-shadow: 0 0 16px 6px rgba(var(--scc-rgb,128,128,128), .85),
+                    0 0 38px 14px rgba(var(--scc-rgb,128,128,128), .45);
+      }
+      @keyframes scc-glow {
+        0% { opacity:.5; filter:brightness(1); }
+        50% { opacity:1; filter:brightness(1.6); }
+        100% { opacity:.5; filter:brightness(1); }
+      }
+      @keyframes scc-alert {
+        0% { transform:rotate(8deg); }
+        50% { transform:rotate(17deg); }
+        100% { transform:rotate(8deg); }
+      }
+      @keyframes scc-calm {
+        0% { transform:rotate(0); }
+        15% { transform:rotate(-10deg) scale(1.03); }
+        30% { transform:rotate(2deg) scale(1.04); }
+        40% { transform:rotate(0); }
+        100% { transform:rotate(0); }
+      }
+      :host([scc-anim="alert"]) ha-icon { animation: scc-alert 1.6s ease-in-out infinite; transform-origin:50% 50%; }
+      :host([scc-anim="alert"]) .iconwrap::after { animation: scc-glow 2.2s ease-in-out infinite; }
+      :host([scc-anim="calm"]) ha-icon { animation: scc-calm 3.2s ease-in-out infinite; transform-origin:50% 50%; }
+      :host([scc-anim="calm"]) .iconwrap::after { animation: scc-glow 2.6s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        ha-icon, .iconwrap::after { animation:none !important; }
+      }
     `;
 
     // Einmalig Struktur aufbauen
@@ -271,7 +357,7 @@ class SummaryCountCard extends HTMLElement {
         <style>${styles}</style>
         <ha-card>
           <div class="inner">
-            <ha-icon class="icn"></ha-icon>
+            <div class="iconwrap"><ha-icon class="icn"></ha-icon></div>
             <div class="row"><div class="num"></div><div class="label"></div></div>
           </div>
         </ha-card>
@@ -282,6 +368,7 @@ class SummaryCountCard extends HTMLElement {
       }
       this._built = true;
       this._iconEl = this._shadow.querySelector(".icn");
+      this._iconWrapEl = this._shadow.querySelector(".iconwrap");
       this._numEl = this._shadow.querySelector(".num");
       this._labelEl = this._shadow.querySelector(".label");
     }
@@ -293,6 +380,13 @@ class SummaryCountCard extends HTMLElement {
       iconEl.style.color = color;
       iconEl.style.display = showIcon ? "" : "none";
     }
+    // Animation - gleicher Effekt wie auf der Tuerschloss-Karte (Glow-Halo + Wiegen).
+    // "alert" wenn gezaehlt wird, "calm" im Ruhezustand - "calm" nur wenn "Nur groesser 0" aus ist.
+    const animOn = this._config.animate === true && showIcon &&
+      (this._count > 0 || this._config.animate_active_only === false);
+    if (animOn) this._applyGlowRgb(color, iconEl);
+    this.setAttribute("scc-anim", animOn ? (this._count > 0 ? "alert" : "calm") : "off");
+    if (this._iconWrapEl) this._iconWrapEl.style.display = showIcon ? "" : "none";
     if (numEl) {
       // Zahl ausblenden NUR wenn count=0 UND das Label tatsächlich sichtbar ist (kein "0 Alle aus").
       // Bei show_label:false bleibt die Zahl immer sichtbar.
@@ -310,6 +404,10 @@ class SummaryCountCard extends HTMLElement {
     if (cardEl) {
       cardEl.style.display = "";
     }
+  }
+
+  connectedCallback() {
+    if (this._shadow && this._config) this._render();
   }
 
   getCardSize() { return 1; }

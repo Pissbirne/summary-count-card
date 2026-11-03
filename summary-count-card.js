@@ -1,59 +1,6 @@
 // ===== SUMMARY-COUNT-CARD - mit visuellem Editor (ohne Lit) =====
-// Optionen: animate (Animieren), animate_active_only (nur groesser 0)
 const CARD_NAME = "summary-count-card";
 const EDITOR_TAG = CARD_NAME + "-editor";
-
-// Automatische Labels, zweisprachig. Die Sprache kommt aus Home Assistant
-// (hass.locale.language); alles ausser "de" bekommt Englisch.
-// Reihenfolge je Typ: [count === 0, count === 1, sonst]
-const AUTO_LABELS = {
-  de: {
-    lights: ["Alle aus", "Licht an", "Lichter an"],
-    batteries_critical: ["Alle OK", "kritisch", "kritisch"],
-    covers_open: ["Alle zu", "Rollo offen", "Rollos offen"],
-    security: ["Alles gesichert", "unsicher", "unsicher"],
-    switches_on: ["Alle aus", "Schalter an", "Schalter an"],
-    sensors_on: ["Keine aktiv", "Sensor an", "Sensoren an"]
-  },
-  en: {
-    lights: ["All off", "Light on", "Lights on"],
-    batteries_critical: ["All OK", "critical", "critical"],
-    covers_open: ["All closed", "Cover open", "Covers open"],
-    security: ["All secure", "unsafe", "unsafe"],
-    switches_on: ["All off", "Switch on", "Switches on"],
-    sensors_on: ["None active", "Sensor active", "Sensors active"]
-  }
-};
-
-// Editor-Beschriftungen, gleiche Sprache wie die Karte
-const EDITOR_UI = {
-  de: {
-    general: "Allgemein", display: "Anzeige", count_type: "Z\u00e4hl-Typ",
-    target: "Ziel (Navigation, z.B. /dashboard-neu/batteries)",
-    label: "Label (leer = automatisch)", label_ph: "automatisch",
-    icon: "Icon (leer = automatisch, z.B. mdi:battery-alert)",
-    show_label: "Label anzeigen", show_icon: "Icon anzeigen",
-    animate: "Animieren", active_only: "Nur gr\u00f6\u00dfer 0",
-    types: { batteries_critical: "Batterien kritisch", lights: "Lichter an", switches_on: "Schalter an",
-             sensors_on: "Sensoren an", covers_open: "Rollos offen", security: "Unsicher" }
-  },
-  en: {
-    general: "General", display: "Display", count_type: "Count type",
-    target: "Target (navigation, e.g. /dashboard-neu/batteries)",
-    label: "Label (empty = automatic)", label_ph: "automatic",
-    icon: "Icon (empty = automatic, e.g. mdi:battery-alert)",
-    show_label: "Show label", show_icon: "Show icon",
-    animate: "Animate", active_only: "Only above 0",
-    types: { batteries_critical: "Critical batteries", lights: "Lights on", switches_on: "Switches on",
-             sensors_on: "Sensors active", covers_open: "Covers open", security: "Unsafe" }
-  }
-};
-const TYPE_ORDER = ["batteries_critical", "lights", "switches_on", "sensors_on", "covers_open", "security"];
-
-function langOf(hass) {
-  const raw = (hass && ((hass.locale && hass.locale.language) || hass.language)) || "en";
-  return String(raw).toLowerCase().split("-")[0];
-}
 
 // ===== Editor =====
 class SummaryCountEditor extends HTMLElement {
@@ -62,7 +9,6 @@ class SummaryCountEditor extends HTMLElement {
     this._config = null;
     this._hass = null;
     this._shadow = null;
-    this._lang = "en";
   }
 
   setConfig(config) {
@@ -74,23 +20,13 @@ class SummaryCountEditor extends HTMLElement {
       show_label: config.show_label !== false,
       show_icon: config.show_icon !== false,
       color_mode: config.color_mode || "auto",
-      animate: config.animate === true,
-      animate_active_only: config.animate_active_only !== false,
       ...config
     };
-    this._lang = langOf(this._hass);
     if (!this._shadow) this._shadow = this.attachShadow({ mode: "open" });
     this._render();
   }
 
-  set hass(hass) {
-    this._hass = hass;
-    const lang = langOf(hass);
-    if (lang !== this._lang) {       // Sprachenwechsel live uebernehmen
-      this._lang = lang;
-      this._render();
-    }
-  }
+  set hass(hass) { this._hass = hass; }
   get hass() { return this._hass; }
 
   _emit() {
@@ -109,10 +45,17 @@ class SummaryCountEditor extends HTMLElement {
   _render() {
     if (!this._shadow || !this._config) return;
     const c = this._config;
-    const t = EDITOR_UI[this._lang] || EDITOR_UI.en;
+    const types = [
+      ["batteries_critical", "Batterien kritisch"],
+      ["lights", "Lichter an"],
+      ["switches_on", "Schalter an"],
+      ["sensors_on", "Sensoren an"],
+      ["covers_open", "Rollos offen"],
+      ["security", "Unsicher"]
+    ];
     let options = "";
-    for (const val of TYPE_ORDER) {
-      options += `<option value="${val}" ${c.count_type === val ? "selected" : ""}>${t.types[val] || val}</option>`;
+    for (const [val, lbl] of types) {
+      options += `<option value="${val}" ${c.count_type === val ? "selected" : ""}>${lbl}</option>`;
     }
 
     this._shadow.innerHTML = `
@@ -130,40 +73,32 @@ class SummaryCountEditor extends HTMLElement {
         .section-head { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); }
       </style>
       <div class="editor">
-        <div class="section-head">${t.general}</div>
+        <div class="section-head">Allgemein</div>
         <div class="row">
-          <label>${t.count_type}</label>
+          <label>Zähl-Typ</label>
           <select class="select-input" id="count_type">${options}</select>
         </div>
         <div class="row">
-          <label>${t.target}</label>
+          <label>Ziel (Navigation, z.B. /dashboard-neu/batteries)</label>
           <input type="text" class="text-input" id="target_path" value="${c.target_path || ""}" placeholder="/dashboard-neu/batteries">
         </div>
         <div class="section-divider"></div>
-        <div class="section-head">${t.display}</div>
+        <div class="section-head">Anzeige</div>
         <div class="row">
-          <label>${t.label}</label>
-          <input type="text" class="text-input" id="label" value="${c.label || ""}" placeholder="${t.label_ph}">
+          <label>Label (leer = automatisch)</label>
+          <input type="text" class="text-input" id="label" value="${c.label || ""}" placeholder="automatisch">
         </div>
         <div class="row">
-          <label>${t.icon}</label>
+          <label>Icon (leer = automatisch, z.B. mdi:battery-alert)</label>
           <input type="text" class="text-input" id="icon" value="${c.icon || ""}" placeholder="mdi:battery-alert">
         </div>
         <div class="toggle-row">
-          <ha-switch id="show_label"></ha-switch>
-          <span>${t.show_label}</span>
+          <ha-switch id="show_label" .checked="${c.show_label !== false}"></ha-switch>
+          <span>Label anzeigen</span>
         </div>
         <div class="toggle-row">
-          <ha-switch id="show_icon"></ha-switch>
-          <span>${t.show_icon}</span>
-        </div>
-        <div class="toggle-row">
-          <ha-switch id="animate"></ha-switch>
-          <span>${t.animate}</span>
-        </div>
-        <div class="toggle-row">
-          <ha-switch id="animate_active_only"></ha-switch>
-          <span>${t.active_only}</span>
+          <ha-switch id="show_icon" .checked="${c.show_icon !== false}"></ha-switch>
+          <span>Icon anzeigen</span>
         </div>
       </div>
     `;
@@ -179,25 +114,9 @@ class SummaryCountEditor extends HTMLElement {
     const ic = this._shadow.querySelector("#icon");
     if (ic) ic.addEventListener("input", (e) => self._patch({ icon: e.target.value }));
     const sl = this._shadow.querySelector("#show_label");
-    if (sl) {
-      sl.checked = self._config.show_label !== false;
-      sl.addEventListener("change", (e) => self._patch({ show_label: e.target.checked }));
-    }
+    if (sl) sl.addEventListener("change", (e) => self._patch({ show_label: e.target.checked }));
     const si = this._shadow.querySelector("#show_icon");
-    if (si) {
-      si.checked = self._config.show_icon !== false;
-      si.addEventListener("change", (e) => self._patch({ show_icon: e.target.checked }));
-    }
-    const an = this._shadow.querySelector("#animate");
-    if (an) {
-      an.checked = self._config.animate === true;
-      an.addEventListener("change", (e) => self._patch({ animate: e.target.checked }));
-    }
-    const ao = this._shadow.querySelector("#animate_active_only");
-    if (ao) {
-      ao.checked = self._config.animate_active_only !== false;
-      ao.addEventListener("change", (e) => self._patch({ animate_active_only: e.target.checked }));
-    }
+    if (si) si.addEventListener("change", (e) => self._patch({ show_icon: e.target.checked }));
   }
 }
 
@@ -212,10 +131,6 @@ class SummaryCountCard extends HTMLElement {
     this._shadow = null;
     this._count = 0;
     this._label = "";
-    this._rgbSrc = null;
-    this._rgbVal = null;
-    this._rgbAt = 0;
-    this._lang = "en";
   }
 
   setConfig(config) {
@@ -227,9 +142,7 @@ class SummaryCountCard extends HTMLElement {
       icon: config.icon || "",
       show_label: config.show_label !== false,
       show_icon: config.show_icon !== false,
-      color_mode: config.color_mode || "auto",
-      animate: config.animate === true,
-      animate_active_only: config.animate_active_only !== false
+      color_mode: config.color_mode || "auto"
     };
     this._compute();
     if (!this._shadow) {
@@ -247,7 +160,6 @@ class SummaryCountCard extends HTMLElement {
 
   _compute() {
     if (!this._hass || !this._config) return;
-    this._lang = langOf(this._hass);
     this._count = this._countEntities(this._hass, this._config.count_type);
     this._label = this._config.label || this._autoLabel(this._config.count_type, this._count);
   }
@@ -265,6 +177,8 @@ class SummaryCountCard extends HTMLElement {
       }
 
       if (type === "lights") {
+        // Hilfsrück (raumlichter_*) und Screens (_screen) nicht zählen
+        if (entityId.includes("raumlichter") || entityId.includes("screen")) continue;
         if (entityId.startsWith("light.") && state.state === "on") count++;
       } else if (type === "switches_on") {
         if (entityId.startsWith("switch.") && state.state === "on") count++;
@@ -295,10 +209,15 @@ class SummaryCountCard extends HTMLElement {
   }
 
   _autoLabel(type, count) {
-    const table = AUTO_LABELS[this._lang] || AUTO_LABELS.en;
-    const row = table[type] || AUTO_LABELS.en[type];
-    if (!row) return "";
-    return row[count === 0 ? 0 : (count === 1 ? 1 : 2)];
+    const de = {
+      lights: count === 0 ? "Alle aus" : (count === 1 ? "Licht an" : "Lichter an"),
+      batteries_critical: count === 0 ? "Alle OK" : "kritisch",
+      covers_open: count === 0 ? "Alle zu" : (count === 1 ? "Rollo offen" : "Rollos offen"),
+      security: count === 0 ? "Alles gesichert" : "unsicher",
+      switches_on: count === 0 ? "Alle aus" : "Schalter an",
+      sensors_on: count === 0 ? "Keine aktiv" : (count === 1 ? "Sensor an" : "Sensoren an")
+    };
+    return de[type] || "";
   }
 
   _autoIcon(type) {
@@ -330,33 +249,6 @@ class SummaryCountCard extends HTMLElement {
     }
   }
 
-  // Loest die Icon-Farbe (Theme-Variablen wie var(--error-color) sind KEIN rgb-Tripel)
-  // zu "r,g,b" auf, damit der Glow-Halo exakt die Icon-Farbe hat. Quelle ist die
-  // bereits gerenderte Farbe des Icons selbst - kein Extra-Element, keine Layout-Kosten.
-  // Fehlschlaege werden NICHT gecacht, und ausserhalb des DOM wird gar nicht aufgeloest.
-  _applyGlowRgb(color, iconEl) {
-    const now = Date.now();
-    if (this._rgbSrc === color && this._rgbVal && (now - this._rgbAt) < 30000) {
-      this.style.setProperty("--scc-rgb", this._rgbVal);
-      return;
-    }
-    if (!this.isConnected || !iconEl) return;
-    let rgb = null;
-    try {
-      const resolved = getComputedStyle(iconEl).color || "";
-      const m = resolved.match(/([0-9]+)[^0-9]+([0-9]+)[^0-9]+([0-9]+)/);
-      if (m) rgb = m[1] + "," + m[2] + "," + m[3];
-    } catch (e) { rgb = null; }
-    if (!rgb) {
-      if (this._rgbVal) this.style.setProperty("--scc-rgb", this._rgbVal);
-      return;
-    }
-    this._rgbSrc = color;
-    this._rgbVal = rgb;
-    this._rgbAt = now;
-    this.style.setProperty("--scc-rgb", rgb);
-  }
-
   _render() {
     if (!this._shadow || !this._config) return;
     const icon = this._config.icon || this._autoIcon(this._config.count_type);
@@ -366,46 +258,13 @@ class SummaryCountCard extends HTMLElement {
 
     const styles = `
       :host { display: block; }
-      ha-card { cursor:pointer; border-radius:12px; overflow:visible; }
+      ha-card { cursor:pointer; border-radius:12px; }
       ha-card:hover { background:rgba(255,255,255,0.12); }
       .inner { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:12px; min-height:88px; }
       .row { display:flex; flex-direction:row; align-items:baseline; justify-content:center; gap:4px; }
       .num { font-size:24px; font-weight:700; line-height:1; }
       .label { font-size:14px; font-weight:600; color:var(--primary-text-color); text-align:center; }
-      .iconwrap { position:relative; display:flex; align-items:center; justify-content:center; }
       ha-icon { --mdc-icon-size:32px; margin-bottom:2px; }
-
-      /* Glow-Halo hinter dem Icon - gleicher Effekt wie auf der Tuerschloss-Karte */
-      .iconwrap::after {
-        content:''; position:absolute; left:50%; top:50%; width:46px; height:46px;
-        margin:-23px 0 0 -23px; border-radius:50%; pointer-events:none; opacity:0;
-        box-shadow: 0 0 16px 6px rgba(var(--scc-rgb,128,128,128), .85),
-                    0 0 38px 14px rgba(var(--scc-rgb,128,128,128), .45);
-      }
-      @keyframes scc-glow {
-        0% { opacity:.5; filter:brightness(1); }
-        50% { opacity:1; filter:brightness(1.6); }
-        100% { opacity:.5; filter:brightness(1); }
-      }
-      @keyframes scc-alert {
-        0% { transform:rotate(8deg); }
-        50% { transform:rotate(17deg); }
-        100% { transform:rotate(8deg); }
-      }
-      @keyframes scc-calm {
-        0% { transform:rotate(0); }
-        15% { transform:rotate(-10deg) scale(1.03); }
-        30% { transform:rotate(2deg) scale(1.04); }
-        40% { transform:rotate(0); }
-        100% { transform:rotate(0); }
-      }
-      :host([scc-anim="alert"]) ha-icon { animation: scc-alert 1.6s ease-in-out infinite; transform-origin:50% 50%; }
-      :host([scc-anim="alert"]) .iconwrap::after { animation: scc-glow 2.2s ease-in-out infinite; }
-      :host([scc-anim="calm"]) ha-icon { animation: scc-calm 3.2s ease-in-out infinite; transform-origin:50% 50%; }
-      :host([scc-anim="calm"]) .iconwrap::after { animation: scc-glow 2.6s ease-in-out infinite; }
-      @media (prefers-reduced-motion: reduce) {
-        ha-icon, .iconwrap::after { animation:none !important; }
-      }
     `;
 
     // Einmalig Struktur aufbauen
@@ -414,7 +273,7 @@ class SummaryCountCard extends HTMLElement {
         <style>${styles}</style>
         <ha-card>
           <div class="inner">
-            <div class="iconwrap"><ha-icon class="icn"></ha-icon></div>
+            <ha-icon class="icn"></ha-icon>
             <div class="row"><div class="num"></div><div class="label"></div></div>
           </div>
         </ha-card>
@@ -425,7 +284,6 @@ class SummaryCountCard extends HTMLElement {
       }
       this._built = true;
       this._iconEl = this._shadow.querySelector(".icn");
-      this._iconWrapEl = this._shadow.querySelector(".iconwrap");
       this._numEl = this._shadow.querySelector(".num");
       this._labelEl = this._shadow.querySelector(".label");
     }
@@ -437,13 +295,6 @@ class SummaryCountCard extends HTMLElement {
       iconEl.style.color = color;
       iconEl.style.display = showIcon ? "" : "none";
     }
-    // Animation - gleicher Effekt wie auf der Tuerschloss-Karte (Glow-Halo + Wiegen).
-    // "alert" wenn gezaehlt wird, "calm" im Ruhezustand - "calm" nur wenn "Nur groesser 0" aus ist.
-    const animOn = this._config.animate === true && showIcon &&
-      (this._count > 0 || this._config.animate_active_only === false);
-    if (animOn) this._applyGlowRgb(color, iconEl);
-    this.setAttribute("scc-anim", animOn ? (this._count > 0 ? "alert" : "calm") : "off");
-    if (this._iconWrapEl) this._iconWrapEl.style.display = showIcon ? "" : "none";
     if (numEl) {
       // Zahl ausblenden NUR wenn count=0 UND das Label tatsächlich sichtbar ist (kein "0 Alle aus").
       // Bei show_label:false bleibt die Zahl immer sichtbar.
@@ -461,10 +312,6 @@ class SummaryCountCard extends HTMLElement {
     if (cardEl) {
       cardEl.style.display = "";
     }
-  }
-
-  connectedCallback() {
-    if (this._shadow && this._config) this._render();
   }
 
   getCardSize() { return 1; }
